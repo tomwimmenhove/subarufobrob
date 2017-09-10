@@ -1,5 +1,5 @@
 # subarufobrob
-Hijack a 2009 (and probably others) subaru forester's key fob and steal all the things
+Hijack a subaru's key fob and steal all the things
 
 Usage:
 - Build it:
@@ -19,3 +19,15 @@ which can be controlled with the code here: https://github.com/tomwimmenhove/fx2
 This transmitter doesn't really support the 433MHz band, but it's nyquist images are strong enough for an acceptable transmit range. To use this, simply use ./opensesame.sh <command>
 
 I might work on this a little more to make transmitting easier with, for example, rpitx on the raspberry pi. This way, no custom or expensive hardware will be needed.
+
+It has been tested with 2 keyfobs for a 2009 Subaru Forester.
+
+This fob is also used on:
+ - 2006 Subaru Baja
+ - 2005 - 2010 Subaru Forester
+ - 2004 - 2011 Subaru Impreza
+ - 2005 - 2010 Subaru Legacy
+ - 2005 - 2010 Subaru Outback
+
+So it should work with all the above.
+
