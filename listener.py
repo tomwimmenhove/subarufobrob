@@ -3,7 +3,7 @@
 ##################################################
 # GNU Radio Python Flow Graph
 # Title: Listener
-# Generated: Sun Sep 10 11:04:15 2017
+# Generated: Wed Sep 13 13:04:17 2017
 ##################################################
 
 if __name__ == '__main__':
@@ -26,7 +26,6 @@ from gnuradio.fft import window
 from gnuradio.filter import firdes
 from gnuradio.wxgui import fftsink2
 from gnuradio.wxgui import scopesink2
-from grc_gnuradio import blks2 as grc_blks2
 from grc_gnuradio import wxgui as grc_wxgui
 from optparse import OptionParser
 import osmosdr
@@ -45,8 +44,7 @@ class listener(grc_wxgui.top_block_gui):
         # Variables
         ##################################################
         self.samp_rate = samp_rate = 2.4e6
-        self.samp_per_sym = samp_per_sym = 194.536313
-        self.interpolation = interpolation = 2
+        self.interpolation = interpolation = 1
         self.decimation = decimation = 25
 
         ##################################################
@@ -65,7 +63,7 @@ class listener(grc_wxgui.top_block_gui):
         	t_scale=0,
         	ac_couple=False,
         	xy_mode=False,
-        	num_inputs=2,
+        	num_inputs=1,
         	trig_mode=wxgui.TRIG_MODE_AUTO,
         	y_axis_label="Counts",
         )
@@ -99,67 +97,33 @@ class listener(grc_wxgui.top_block_gui):
         self.rtlsdr_source_0.set_antenna("", 0)
         self.rtlsdr_source_0.set_bandwidth(0, 0)
           
-        self.rational_resampler_xxx_0 = filter.rational_resampler_fff(
-                interpolation=interpolation,
-                decimation=decimation,
-                taps=None,
-                fractional_bw=None,
-        )
-        self.low_pass_filter_1 = filter.fir_filter_fff(1, firdes.low_pass(
-        	1, samp_rate * interpolation / decimation, 5e3, 5e3, firdes.WIN_HAMMING, 6.76))
         self.low_pass_filter_0 = filter.fir_filter_ccf(1, firdes.low_pass(
         	1, samp_rate, 50e3, 50e3, firdes.WIN_HAMMING, 6.76))
-        self.blocks_throttle_0 = blocks.throttle(gr.sizeof_gr_complex*1, samp_rate,True)
-        self.blocks_sub_xx_0 = blocks.sub_ff(1)
-        self.blocks_moving_average_xx_0 = blocks.moving_average_ff(1000, .001, 4000)
         self.blocks_complex_to_mag_squared_0 = blocks.complex_to_mag_squared(1)
-        self.blks2_tcp_sink_0 = grc_blks2.tcp_sink(
-        	itemsize=gr.sizeof_float*1,
-        	addr="127.0.0.1",
-        	port=4242,
-        	server=False,
-        )
 
         ##################################################
         # Connections
         ##################################################
-        self.connect((self.blocks_complex_to_mag_squared_0, 0), (self.rational_resampler_xxx_0, 0))    
-        self.connect((self.blocks_moving_average_xx_0, 0), (self.blocks_sub_xx_0, 1))    
-        self.connect((self.blocks_sub_xx_0, 0), (self.blks2_tcp_sink_0, 0))    
-        self.connect((self.blocks_sub_xx_0, 0), (self.wxgui_scopesink2_0, 1))    
-        self.connect((self.blocks_throttle_0, 0), (self.low_pass_filter_0, 0))    
+        self.connect((self.blocks_complex_to_mag_squared_0, 0), (self.wxgui_scopesink2_0, 0))    
         self.connect((self.low_pass_filter_0, 0), (self.blocks_complex_to_mag_squared_0, 0))    
         self.connect((self.low_pass_filter_0, 0), (self.wxgui_fftsink2_0, 0))    
-        self.connect((self.low_pass_filter_1, 0), (self.blocks_moving_average_xx_0, 0))    
-        self.connect((self.low_pass_filter_1, 0), (self.blocks_sub_xx_0, 0))    
-        self.connect((self.low_pass_filter_1, 0), (self.wxgui_scopesink2_0, 0))    
-        self.connect((self.rational_resampler_xxx_0, 0), (self.low_pass_filter_1, 0))    
-        self.connect((self.rtlsdr_source_0, 0), (self.blocks_throttle_0, 0))    
+        self.connect((self.rtlsdr_source_0, 0), (self.low_pass_filter_0, 0))    
 
     def get_samp_rate(self):
         return self.samp_rate
 
     def set_samp_rate(self, samp_rate):
         self.samp_rate = samp_rate
-        self.blocks_throttle_0.set_sample_rate(self.samp_rate)
         self.low_pass_filter_0.set_taps(firdes.low_pass(1, self.samp_rate, 50e3, 50e3, firdes.WIN_HAMMING, 6.76))
-        self.low_pass_filter_1.set_taps(firdes.low_pass(1, self.samp_rate * self.interpolation / self.decimation, 5e3, 5e3, firdes.WIN_HAMMING, 6.76))
         self.rtlsdr_source_0.set_sample_rate(self.samp_rate)
         self.wxgui_fftsink2_0.set_sample_rate(self.samp_rate)
         self.wxgui_scopesink2_0.set_sample_rate(self.samp_rate * self.interpolation / self.decimation)
-
-    def get_samp_per_sym(self):
-        return self.samp_per_sym
-
-    def set_samp_per_sym(self, samp_per_sym):
-        self.samp_per_sym = samp_per_sym
 
     def get_interpolation(self):
         return self.interpolation
 
     def set_interpolation(self, interpolation):
         self.interpolation = interpolation
-        self.low_pass_filter_1.set_taps(firdes.low_pass(1, self.samp_rate * self.interpolation / self.decimation, 5e3, 5e3, firdes.WIN_HAMMING, 6.76))
         self.wxgui_scopesink2_0.set_sample_rate(self.samp_rate * self.interpolation / self.decimation)
 
     def get_decimation(self):
@@ -167,7 +131,6 @@ class listener(grc_wxgui.top_block_gui):
 
     def set_decimation(self, decimation):
         self.decimation = decimation
-        self.low_pass_filter_1.set_taps(firdes.low_pass(1, self.samp_rate * self.interpolation / self.decimation, 5e3, 5e3, firdes.WIN_HAMMING, 6.76))
         self.wxgui_scopesink2_0.set_sample_rate(self.samp_rate * self.interpolation / self.decimation)
 
 

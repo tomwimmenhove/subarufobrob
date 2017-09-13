@@ -37,10 +37,35 @@ void handlePacket(unsigned char* packet)
 	fclose(f);
 }
 
+double runningPeak(double sample, double *history, int historyPos, int len, double currentPeak)
+{
+	historyPos %= len;
+	history[historyPos] = sample;
+
+	if (sample > currentPeak) return sample;
+
+	/* if the possibel peak 'slid' off */
+	int nextPos = (historyPos + 1) % len;
+	if (history[nextPos] == currentPeak)
+	{
+		history[nextPos] = 0;
+
+		double peak = 0.0;
+		/* Recalculate the peak */
+		for (int i=0; i < len - 1; i++)
+		{
+			if (history[i] > peak) peak = history[i];
+		}
+
+		return peak;
+	}
+	return currentPeak;
+}
+
 int main(int argc, char **argv)
 {
         float buf[192]; // 1ms
-        double samplesPerBit = 194.536313;
+        double samplesPerBit = 194.536313 / 2.0;
 	double preambleMaxError = samplesPerBit / 10.0;
 	double sampleAt = 0.0;
 	int state = 0;
@@ -57,12 +82,33 @@ int main(int argc, char **argv)
 	int pos = 0;
 	int lastSampledBit;
 
+	int historyLen = 1024; // XXX: Depend on samplerate
+	double history[historyLen];
+	int historyPos = 0;
+
+	double peak = 0;
+
+	int decimation = 25;
+	int decimator = 0;
+
+	memset(history, 0, sizeof(history));
+
 	while ((n = read(0, buf, sizeof(buf))) > 0)
 	{
 		for (int i = 0 ; i < n / sizeof(float); i++)
 		{
 			float sample = buf[i];
-			int bit = sample > 0.0;
+
+			if (decimation > ++decimator)
+			{
+				continue;
+			}
+			decimator = 0;
+
+			peak = runningPeak(sample, history, sampleNum, historyLen, peak);
+
+			/* 4, because magnitude^2 */
+			int bit = sample > peak / 4;
 
 			/* Check for zero-crossing */
 			int zeroCrossing = (lastBit != bit);
@@ -73,7 +119,6 @@ int main(int argc, char **argv)
 				// Align the sampleAt variable here
 				sampleAt = sampleNum + samplesPerBit / 2.0;
 			}
-
 
 			/* Check if this is the end of the preamble */
 			if (preambleGood >= minPreambleBits)
@@ -98,6 +143,10 @@ int main(int argc, char **argv)
 						if (!preambleGood) /* See if this is the start of a preamble */
 						{
 							preambleGood++;
+							if (preambleGood > 5)
+							{
+								fprintf(stderr, "God damit, wtf: %d\n", preambleGood);
+							}
 						}
 						else
 						{
