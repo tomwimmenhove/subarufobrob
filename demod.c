@@ -11,6 +11,7 @@
 
 #include "hex.h"
 #include "protocol.h"
+#include "filter.h"
 
 void handlePacket(unsigned char* packet)
 {
@@ -37,12 +38,43 @@ void handlePacket(unsigned char* packet)
 	fclose(f);
 }
 
+double runningPeak(double sample, double *history, int historyPos, int len, double currentPeak)
+{
+	historyPos %= len;
+	history[historyPos] = sample;
+
+	if (sample > currentPeak) return sample;
+
+	/* if the possibel peak 'slid' off */
+	int nextPos = (historyPos + 1) % len;
+	if (history[nextPos] == currentPeak)
+	{
+		history[nextPos] = 0;
+
+		double peak = 0.0;
+		/* Recalculate the peak */
+		for (int i=0; i < len - 1; i++)
+		{
+			if (history[i] > peak) peak = history[i];
+		}
+
+		return peak;
+	}
+	return currentPeak;
+}
+
+typedef struct
+{
+	float i;
+	float q;
+} __attribute__((packed)) complexSample;
+
 int main(int argc, char **argv)
 {
-        float buf[192]; // 1ms
-        double samplesPerBit = 194.536313;
-	double preambleMaxError = samplesPerBit / 10.0;
-	double sampleAt = 0.0;
+	complexSample buf[128];
+        int samplesPerBit = 40;
+	int preambleMaxError = samplesPerBit / 10.0;
+	int sampleAt = 0.0;
 	int state = 0;
 	int lastCrossing = 0;
 	int manchPos = 0;
@@ -57,12 +89,56 @@ int main(int argc, char **argv)
 	int pos = 0;
 	int lastSampledBit;
 
+	int historyLen = 1024; // XXX: Depend on samplerate
+	double history[historyLen];
+	int historyPos = 0;
+
+	double peak = 0;
+
+	int decimation = 25;
+	int decimator = 0;
+
+	SampleFilter filteri;
+	SampleFilter filterq;
+	SampleFilter_init(&filteri);
+	SampleFilter_init(&filterq);
+
+	memset(history, 0, sizeof(history));
+
+	double avg = 0.0;
+
+	int bit = 0;
 	while ((n = read(0, buf, sizeof(buf))) > 0)
 	{
-		for (int i = 0 ; i < n / sizeof(float); i++)
+		for (int i = 0 ; i < n / sizeof(complexSample); i++)
 		{
-			float sample = buf[i];
-			int bit = sample > 0.0;
+			double si = ((double) buf[i].i);
+			double sq = ((double) buf[i].q);
+
+			SampleFilter_put(&filteri, si);
+			SampleFilter_put(&filterq, sq);
+
+			si = SampleFilter_get(&filteri);
+			sq = SampleFilter_get(&filterq);
+
+			double mag = si*si + sq*sq;
+			avg += mag;
+
+			if (decimation > ++decimator)
+			{
+				continue;
+			}
+			decimator = 0;
+
+			double sample = avg / decimation;
+			avg = 0.0;
+
+			peak = runningPeak(sample, history, sampleNum, historyLen, peak);
+
+			int bit = sample > peak / 2;
+//			int bit = sample > .01;
+//			if (sample > peak / 2) bit = 1;
+//			else if (sample < peak / 4) bit = 0;
 
 			/* Check for zero-crossing */
 			int zeroCrossing = (lastBit != bit);
@@ -74,12 +150,11 @@ int main(int argc, char **argv)
 				sampleAt = sampleNum + samplesPerBit / 2.0;
 			}
 
-
 			/* Check if this is the end of the preamble */
 			if (preambleGood >= minPreambleBits)
 			{
 				/* Pre-amble is followed by 4 low 'bits' */
-				if (fabs(sinceLastCrossing / 4 - samplesPerBit) < preambleMaxError)
+				if (abs(sinceLastCrossing / 4 - samplesPerBit) < preambleMaxError)
 				{
 					state = 1;
 					preambleGood = 0;
@@ -101,7 +176,7 @@ int main(int argc, char **argv)
 						}
 						else
 						{
-							float err = fabsf((double) sinceLastCrossing - samplesPerBit);;
+							int err = abs(sinceLastCrossing - samplesPerBit);;
 							if (err > preambleMaxError)
 							{
 								preambleGood = 0;
@@ -114,7 +189,7 @@ int main(int argc, char **argv)
 					}
 					break;
 				case 1: // prepare for bitbang
-//					fprintf(stderr, "Got a packet!\n");
+					fprintf(stderr, "Got a packet!\n");
 					manchPos = 0;
 					state = 2;
 					bitpos = 0;
