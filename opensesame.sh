@@ -11,8 +11,9 @@ fi
 ## Read the next code
 CODE=$(cat latestcode.txt)
 
-## Turn the code into a string of ones and zeros
-PKT=$(./code2ookbitstring "$CODE")
+# Create the right format for rpitx
+./rpitxify $CODE rpitx.rfa
 
-./fx2ooksend "$PKT" | fx2lpddsfm -f 433.92M -d 433.92M -v -t float
+# Send it
+sudo rpitx -m RFA -i rpitx.rfa -f 433920
 

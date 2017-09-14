@@ -66,7 +66,7 @@ void rtlsdr_callback(unsigned char *buf, uint32_t len, void *ctx)
 //	fprintf(stderr, "Bufferlen: %d\n", len);
 }
 
-int main()
+int main(int argc, char **argv)
 {
 	rtlsdr_dev_t *dev = NULL;
 	unsigned int dev_index = 0;
@@ -76,6 +76,16 @@ int main()
 	int tunerGain = 87;
 	unsigned short **buffer;
 
+
+	if (argc < 3)
+	{
+		fprintf(stderr, "usage: %s <frequency> <tuner gain>\n", argv[0]);
+		fprintf(stderr, "tuner gain of 87 works for me\n");
+		return -1;
+	}
+
+	freq = atof(argv[1]);
+	tunerGain = atoi(argv[2]);
 
 	ret = rtlsdr_open(&dev, dev_index);
 	if (ret < 0)
