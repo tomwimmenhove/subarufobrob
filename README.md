@@ -28,3 +28,6 @@ This fob is also used on:
 
 So it should work with all the above.
 
+
+DISCLAIMER: Don't actually steal the thingz!
+
