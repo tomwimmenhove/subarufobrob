@@ -73,19 +73,19 @@ int main(int argc, char **argv)
 	int ret;
 	uint32_t sampleRate = 1000000;
 	double freq = 433.92e+6;
-	int tunerGain = 87;
+//	int tunerGain = 87;
 	unsigned short **buffer;
 
 
-	if (argc < 3)
+	if (argc < 2)//3)
 	{
 		fprintf(stderr, "usage: %s <frequency> <tuner gain>\n", argv[0]);
-		fprintf(stderr, "tuner gain of 87 works for me\n");
+//		fprintf(stderr, "tuner gain of 87 works for me\n");
 		return -1;
 	}
 
 	freq = atof(argv[1]);
-	tunerGain = atoi(argv[2]);
+//	tunerGain = atoi(argv[2]);
 
 	ret = rtlsdr_open(&dev, dev_index);
 	if (ret < 0)
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
 	rtlsdr_reset_buffer(dev);
 
 
-	// test
+	// autogtain test
 	rtlsdr_set_tuner_gain_mode(dev, 0);
         rtlsdr_set_agc_mode(dev, 1);
 
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 	rtlsdr_set_center_freq(dev, (uint32_t) freq);
 	//rtlsdr_set_freq_correction( _dev, (int)ppm );
 	//rtlsdr_set_agc_mode(_dev, int(automatic));
-	//rtlsdr_set_tuner_gain(dev, tunerGain); // works...-ish
+//	rtlsdr_set_tuner_gain(dev, tunerGain); // works...-ish
 	//rtlsdr_set_tuner_if_gain( _dev, stage, int(gains[ stage ] * 10.0));
 
 
