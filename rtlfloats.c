@@ -99,11 +99,15 @@ int main(int argc, char **argv)
 	rtlsdr_reset_buffer(dev);
 
 
+	// test
+	rtlsdr_set_tuner_gain_mode(dev, 0);
+        rtlsdr_set_agc_mode(dev, 1);
+
 	rtlsdr_set_sample_rate(dev, sampleRate);
 	rtlsdr_set_center_freq(dev, (uint32_t) freq);
 	//rtlsdr_set_freq_correction( _dev, (int)ppm );
 	//rtlsdr_set_agc_mode(_dev, int(automatic));
-	rtlsdr_set_tuner_gain(dev, tunerGain);
+	//rtlsdr_set_tuner_gain(dev, tunerGain); // works...-ish
 	//rtlsdr_set_tuner_if_gain( _dev, stage, int(gains[ stage ] * 10.0));
 
 
