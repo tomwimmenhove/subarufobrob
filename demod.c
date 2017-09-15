@@ -8,9 +8,10 @@
 #include <math.h>
 #include <string.h>
 #include <ctype.h>
+#include <getopt.h>
+#include <pthread.h>
 
 #include <rtl-sdr.h>
-#include <pthread.h>
 
 #include "hex.h"
 #include "protocol.h"
@@ -81,14 +82,26 @@ void *startSampler(void *c)
 	return NULL;
 }
 
+void printHelp(char *s)
+{
+	fprintf(stderr, "usage %s [options]\n", s);
+	fprintf(stderr, "\t-h, --help                   : this\n");
+	fprintf(stderr, "\t-p, --ppm <ppm>              : set the frequency correction\n");
+	fprintf(stderr, "\t-a, --agc                    : enable autogain\n");
+	fprintf(stderr, "\t-t, --tunergain <gain value> : set rtlsdr_set_tuner_gain() (defaults to 87)\n");
+}
+
 int main(int argc, char **argv)
 {
 	uint32_t sampleRate = 1000000;
-	double freq = 433.88e+6;
+	double freq = 433.92e+6;
 	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
         int samplesPerBit = 40;
 	int preambleMaxError = samplesPerBit / 10;
-	int historyLen = 1024; // XXX: Depend on samplerate
+	int historyLen = 1024; // XXX: Significantly longer than 2 bits, significantly shorted than the pre-amble
+	int ppm = 0.0;
+	int agc = 0;
+	int tunergain = 87;
 
 	rtlsdr_dev_t *dev = NULL;
 	unsigned int dev_index = 0;
@@ -107,26 +120,60 @@ int main(int argc, char **argv)
 	int pos = 0;
 	int lastSampledBit;
 
-	double history[historyLen];
-
 	int decimation = 25;
 	int decimator = 0;
 
 	if (argc < 2)
 	{
-		fprintf(stderr, "Usage: %s <frequency>\n", argv[0]);
+		fprintf(stderr, "Usage: %s <frequency correction in ppm>\n", argv[0]);
 		return -1;
 	}
 
-	freq = atof(argv[1]);
 
+	/* Parse options */
+	int c;
+	while (1) {
+		int option_index = 0;
+		static struct option long_options[] = {
+			{"ppm",        required_argument, 0,  'p' },
+			{"tunergain",  required_argument, 0,  't' },
+			{"agc",        no_argument,       0,  'a' },
+			{"help",       no_argument,       0,  'h' },
+			{0,            0,                 0,  0 }
+		};
+
+		c = getopt_long(argc, argv, "p:t:ah",
+				long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+			case 'h':
+			case 0:
+				printHelp(argv[0]);
+				return c == 'h' ? 0 : -1;
+
+			case 'p':
+				ppm = atoi(optarg);
+				break;
+
+			case 't':
+				tunergain = atoi(optarg);
+				break;
+
+			case 'a':
+				agc = 1;
+				break;
+		}
+	}
+
+	/* setup filter */
 	SampleFilter filteri;
 	SampleFilter filterq;
 	SampleFilter_init(&filteri);
 	SampleFilter_init(&filterq);
 
-	memset(history, 0, sizeof(history));
-
+	/* Build look-up table for float conversion */
 	ComplexSample lut[0x10000];;
 	for (unsigned int i = 0; i < 0x10000; i++)
 	{
@@ -149,24 +196,20 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	/* Set some shit */
-#if 0
-	rtlsdr_set_tuner_gain_mode(dev, 1);
-	rtlsdr_set_agc_mode(dev, 0);
-	rtlsdr_reset_buffer(dev);
-//	rtlsdr_set_tuner_gain_mode(dev, 0);
-//	rtlsdr_set_agc_mode(dev, 1);
-	rtlsdr_set_tuner_gain(dev, 87);
-	rtlsdr_set_sample_rate(dev, sampleRate);
-	rtlsdr_set_center_freq(dev, (uint32_t) freq);
-#else
-	rtlsdr_set_tuner_gain_mode(dev, 0);
-	rtlsdr_set_agc_mode(dev, 1);
-//	rtlsdr_set_tuner_gain(dev, 87);
+	/* Set rtl-sdr parameters */
+	if (agc)
+	{
+		rtlsdr_set_tuner_gain_mode(dev, 0);
+		rtlsdr_set_agc_mode(dev, 1);
+	}
+	else
+	{
+		rtlsdr_set_tuner_gain(dev, tunergain);
+	}
 	rtlsdr_set_sample_rate(dev, sampleRate);
 	rtlsdr_set_center_freq(dev, (uint32_t) freq);
 	rtlsdr_reset_buffer(dev);
-#endif
+	rtlsdr_set_freq_correction(dev, ppm);
 
 	/* create our data pipe */
 	int pipefd[2];
