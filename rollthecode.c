@@ -12,8 +12,14 @@ int main(int argc, char** argv)
 {
 	if (argc < 2)
 	{
-		fprintf(stderr, "usage, %s <command>\n\tcommand can be \"lock\", \"unlock\" or \"trunk\"\n", argv[0]);
+		fprintf(stderr, "usage, %s <command> [increment]\n\tcommand can be \"lock\", \"unlock\" or \"trunk\"\nincrement increments the rolling code by a certain amound. Defaults to 1\n", argv[0]);
 		return -1;
+	}
+
+	int inc = 1;
+	if (argc > 2)
+	{
+		inc = atoi(argv[2]);
 	}
 
 
@@ -63,7 +69,7 @@ int main(int argc, char** argv)
 	int rollingCode = getCode(decoded);
 
 	/* next rolling code */
-	setCode(decoded, rollingCode + 1);
+	setCode(decoded, rollingCode + inc);
 
 	/* Force command */
 	setCommand(decoded, forceCommand);
