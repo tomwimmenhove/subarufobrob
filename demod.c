@@ -15,6 +15,7 @@
 #include "hex.h"
 #include "protocol.h"
 #include "filter.h"
+#include "runningavg.h"
 
 void handlePacket(unsigned char* packet)
 {
@@ -41,33 +42,7 @@ void handlePacket(unsigned char* packet)
 	fclose(f);
 }
 
-double runningPeak(double sample, double *history, int historyPos, int len, double currentPeak)
-{
-	historyPos %= len;
-	history[historyPos] = sample;
-
-	if (sample > currentPeak) return sample;
-
-	/* if the possibel peak 'slid' off */
-	int nextPos = (historyPos + 1) % len;
-	if (history[nextPos] == currentPeak)
-	{
-		history[nextPos] = 0;
-
-		double peak = 0.0;
-		/* Recalculate the peak */
-		for (int i=0; i < len - 1; i++)
-		{
-			if (history[i] > peak) peak = history[i];
-		}
-
-		return peak;
-	}
-	return currentPeak;
-}
-
 #define DEFAULT_BUF_LENGTH              (16 * 16384)
-
 
 typedef struct
 {
@@ -103,20 +78,20 @@ void *startSampler(void *c)
 		exit(1);
 	}
 
+	return NULL;
 }
 
 int main(int argc, char **argv)
 {
-	rtlsdr_dev_t *dev = NULL;
-	unsigned int dev_index = 0;
-	int ret; 
 	uint32_t sampleRate = 1000000;
 	double freq = 433.88e+6;
-	unsigned short **buffer;
-	unsigned short buf[128];
-	
+	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
         int samplesPerBit = 40;
-	int preambleMaxError = samplesPerBit / 10.0;
+	int preambleMaxError = samplesPerBit / 10;
+	int historyLen = 1024; // XXX: Depend on samplerate
+
+	rtlsdr_dev_t *dev = NULL;
+	unsigned int dev_index = 0;
 	int sampleAt = 0.0;
 	int state = 0;
 	int lastCrossing = 0;
@@ -132,11 +107,7 @@ int main(int argc, char **argv)
 	int pos = 0;
 	int lastSampledBit;
 
-	int historyLen = 1024; // XXX: Depend on samplerate
 	double history[historyLen];
-	int historyPos = 0;
-
-	double peak = 0;
 
 	int decimation = 25;
 	int decimator = 0;
@@ -156,8 +127,6 @@ int main(int argc, char **argv)
 
 	memset(history, 0, sizeof(history));
 
-	double avg = 0.0;
-
 	ComplexSample lut[0x10000];;
 	for (unsigned int i = 0; i < 0x10000; i++)
 	{
@@ -170,6 +139,9 @@ int main(int argc, char **argv)
 #endif
 	}
 
+	runningAvgContext avgCtx;
+	runningAvgInit(&avgCtx, historyLen);
+
 	/* Open the rtlsdr */
 	if (rtlsdr_open(&dev, dev_index) == -1)
 	{
@@ -178,14 +150,23 @@ int main(int argc, char **argv)
 	}
 
 	/* Set some shit */
+#if 0
 	rtlsdr_set_tuner_gain_mode(dev, 1);
 	rtlsdr_set_agc_mode(dev, 0);
 	rtlsdr_reset_buffer(dev);
-	rtlsdr_set_tuner_gain_mode(dev, 0);
-	rtlsdr_set_agc_mode(dev, 1);
+//	rtlsdr_set_tuner_gain_mode(dev, 0);
+//	rtlsdr_set_agc_mode(dev, 1);
+	rtlsdr_set_tuner_gain(dev, 87);
 	rtlsdr_set_sample_rate(dev, sampleRate);
 	rtlsdr_set_center_freq(dev, (uint32_t) freq);
-
+#else
+	rtlsdr_set_tuner_gain_mode(dev, 0);
+	rtlsdr_set_agc_mode(dev, 1);
+//	rtlsdr_set_tuner_gain(dev, 87);
+	rtlsdr_set_sample_rate(dev, sampleRate);
+	rtlsdr_set_center_freq(dev, (uint32_t) freq);
+	rtlsdr_reset_buffer(dev);
+#endif
 
 	/* create our data pipe */
 	int pipefd[2];
@@ -205,7 +186,6 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	int bit = 0;
 	while ((n = read(pipefd[0], buf, sizeof(buf))) > 0)
 	{
 		int nout = n / 2;
@@ -216,27 +196,20 @@ int main(int argc, char **argv)
 			SampleFilter_put(&filteri, cSample->i);
 			SampleFilter_put(&filterq, cSample->q);
 
-			double si = SampleFilter_get(&filteri);
-			double sq = SampleFilter_get(&filterq);
-
-			double mag = si*si + sq*sq;
-			avg += mag;
-
 			if (decimation > ++decimator)
 			{
 				continue;
 			}
 			decimator = 0;
 
-			double sample = avg / decimation;
-			avg = 0.0;
+			double si = SampleFilter_get(&filteri);
+			double sq = SampleFilter_get(&filterq);
+			double sample = si*si + sq*sq; // Proportional to receive power
 
-			peak = runningPeak(sample, history, sampleNum, historyLen, peak);
+			double avg = runningAvg(&avgCtx, sample);
+			double centered = sample - avg; // 'ac' coupled signal
 
-			int bit = sample > peak / 2;
-//			int bit = sample > .01;
-//			if (sample > peak / 2) bit = 1;
-//			else if (sample < peak / 4) bit = 0;
+			int bit = centered > 0.0;
 
 			/* Check for zero-crossing */
 			int zeroCrossing = (lastBit != bit);
@@ -259,7 +232,6 @@ int main(int argc, char **argv)
 
 					/* Start sampling halfway during the next bit */
 					sampleAt = sampleNum + samplesPerBit / 2.0;
-					break;
 				}
 			}
 
@@ -287,7 +259,7 @@ int main(int argc, char **argv)
 					}
 					break;
 				case 1: // prepare for bitbang
-					fprintf(stderr, "Got a packet!\n");
+					fprintf(stderr, "Got a pre-amble!\n");
 					manchPos = 0;
 					state = 2;
 					bitpos = 0;
