@@ -1,7 +1,7 @@
 #ifndef SAMPLEFILTER_H_
 #define SAMPLEFILTER_H_
 
-#define EXTREME_FILTER
+//#define EXTREME_FILTER
 
 #ifdef EXTREME_FILTER
 /*
