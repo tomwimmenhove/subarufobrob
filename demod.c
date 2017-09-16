@@ -89,7 +89,7 @@ void printHelp(char *s)
 	fprintf(stderr, "\t-h, --help                   : this\n");
 	fprintf(stderr, "\t-p, --ppm <ppm>              : set the frequency correction\n");
 	fprintf(stderr, "\t-a, --agc                    : enable autogain\n");
-	fprintf(stderr, "\t-t, --tunergain <gain value> : set rtlsdr_set_tuner_gain() (defaults to 87)\n");
+	fprintf(stderr, "\t-t, --tunergain <gain value> : set rtlsdr_set_tuner_gain() (defaults to 8.7)\n");
 	fprintf(stderr, "\t-d, --debug <int>            : debug stuff. Look in the code if you're interested\n");
 }
 
@@ -155,7 +155,7 @@ int main(int argc, char **argv)
 				break;
 
 			case 't':
-				tunergain = atoi(optarg);
+				tunergain = (int)(10.0 * atof(optarg));
 				break;
 
 			case 'a':
@@ -208,7 +208,10 @@ int main(int argc, char **argv)
 	{
 		rtlsdr_set_tuner_gain_mode(dev, 1);
 		rtlsdr_set_agc_mode(dev, 0);
-		rtlsdr_set_tuner_gain(dev, tunergain);
+		if (rtlsdr_set_tuner_gain(dev, tunergain) == -1)
+		{
+			fprintf(stderr, "Can not set gain\n");
+		}
 	}
 	rtlsdr_set_sample_rate(dev, sampleRate);
 	rtlsdr_set_center_freq(dev, (uint32_t) freq);
