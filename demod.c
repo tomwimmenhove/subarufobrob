@@ -15,7 +15,6 @@
 
 #include "hex.h"
 #include "protocol.h"
-#include "filter.h"
 #include "runningavg.h"
 
 void handlePacket(unsigned char* packet)
@@ -95,12 +94,20 @@ void printHelp(char *s)
 
 int main(int argc, char **argv)
 {
-	uint32_t sampleRate = 1000000;
 	double freq = 433.92e+6;
-	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
-        int samplesPerBit = 40; // XXX: this corresponds to 1000 baud, which is a little too high, but works fine since we can re-align at every zero-crossing
+//	uint32_t sampleRate = 995840;// 1024 raw samples per bit at 995840Hz samplerate
+	uint32_t sampleRate = 972500; // 1000 raw samples per bit at 972500Hz samplerate
+	int oversampling = 25; // This gives us ~1M / 24 * 2 = ~80Khz of bandwidth
+        int samplesPerBit = 40;
 	int maxTimeError = 4; // XXX: This needs optimization
-	int historyLen = samplesPerBit * 8; // XXX: Shoule be significantly longer than 2 bits, significantly shorted than the pre-amble
+	int historyLen = samplesPerBit * 32; // XXX: Shoule be significantly longer than 2 bits, significantly shorted than the pre-amble
+	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
+
+	int oversampler = 0;
+
+	int averager = 0;
+	int averaging = 1;
+	double average = 0;
 
 	int ppm = 0;
 	int agc = 0;
@@ -121,8 +128,6 @@ int main(int argc, char **argv)
 	unsigned char packet[10];
 	int pos = 0;
 	int lastSampledBit;
-	int decimation = 25;
-	int decimator = 0;
 	int debug = 0;
 	int c;
 
@@ -168,12 +173,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	/* setup filter */
-	SampleFilter filteri;
-	SampleFilter filterq;
-	SampleFilter_init(&filteri);
-	SampleFilter_init(&filterq);
-
 	/* Build look-up table for float conversion */
 	ComplexSample lut[0x10000];;
 	for (unsigned int i = 0; i < 0x10000; i++)
@@ -188,40 +187,41 @@ int main(int argc, char **argv)
 	}
 
 	/* set up running average to get ac signal */
-	runningAvgContext avgCtx;
-	runningAvgInit(&avgCtx, historyLen);
-
-	/* Open the rtlsdr */
-	if (rtlsdr_open(&dev, dev_index) == -1)
-	{
-		fprintf(stderr, "Can't open device");
-		return -1;
-	}
-
-	/* Set rtl-sdr parameters */
-	if (agc)
-	{
-		rtlsdr_set_tuner_gain_mode(dev, 0);
-		rtlsdr_set_agc_mode(dev, 1);
-	}
-	else
-	{
-		rtlsdr_set_tuner_gain_mode(dev, 1);
-		rtlsdr_set_agc_mode(dev, 0);
-		if (rtlsdr_set_tuner_gain(dev, tunergain) == -1)
-		{
-			fprintf(stderr, "Can not set gain\n");
-		}
-	}
-	rtlsdr_set_sample_rate(dev, sampleRate);
-	rtlsdr_set_center_freq(dev, (uint32_t) freq);
-	rtlsdr_reset_buffer(dev);
-	rtlsdr_set_freq_correction(dev, ppm);
+	runningAvgContext midPointCtx;
+	runningAvgInit(&midPointCtx, historyLen);
 
 	Context ctx;
 	int pipefd[2];
 	if (debug != 2)
 	{
+		/* Open the rtlsdr */
+		if (rtlsdr_open(&dev, dev_index) == -1)
+		{
+			fprintf(stderr, "Can't open device");
+			return -1;
+		}
+
+
+		/* Set rtl-sdr parameters */
+		if (agc)
+		{
+			rtlsdr_set_tuner_gain_mode(dev, 0);
+			rtlsdr_set_agc_mode(dev, 1);
+		}
+		else
+		{
+			rtlsdr_set_tuner_gain_mode(dev, 1);
+			rtlsdr_set_agc_mode(dev, 0);
+			if (rtlsdr_set_tuner_gain(dev, tunergain) == -1)
+			{
+				fprintf(stderr, "Can not set gain\n");
+			}
+		}
+		rtlsdr_set_sample_rate(dev, sampleRate);
+		rtlsdr_set_center_freq(dev, (uint32_t) freq);
+		rtlsdr_reset_buffer(dev);
+		rtlsdr_set_freq_correction(dev, ppm);
+
 		/* create our data pipe */
 		if (pipe(pipefd) == -1)
 		{
@@ -249,15 +249,32 @@ int main(int argc, char **argv)
 	{
 		debugout = malloc(DEFAULT_BUF_LENGTH / sizeof(uint16_t) * sizeof(ComplexSample));
 	}
-	int nDebugout = 0;
+	int nDebugout = -1;
 
 	int bit = 0;
+	double avgi=0.0, avgq=0.0;
 	while ((n = read(pipefd[0], buf, sizeof(buf))) > 0)
 	{
-		int nout = n / 2;
+		int nout;
+		if (debug == 2)
+		{
+			nout = n / sizeof(ComplexSample);
+		}
+		else
+		{
+			nout = n / sizeof(uint16_t);
+		}
 		for (int i = 0 ; i < nout; i++)
 		{
-			ComplexSample* cSample = &lut[buf[i]];
+			ComplexSample* cSample;
+			if (debug == 2)
+			{
+				cSample = (ComplexSample*) &buf[i / sizeof(uint16_t) * sizeof(ComplexSample)];
+			}
+			else
+			{
+				cSample = &lut[buf[i]];
+			}
 
 			if (debug == 1)
 			{
@@ -266,17 +283,17 @@ int main(int argc, char **argv)
 				nDebugout++;
 			}
 
-			SampleFilter_put(&filteri, cSample->i);
-			SampleFilter_put(&filterq, cSample->q);
-
-			if (decimation > ++decimator)
+			/* Oversample */
+			avgi += cSample->i;// oversampling;
+			avgq += cSample->q;// oversampling;
+			if (oversampling > ++oversampler)
 			{
 				continue;
 			}
-			decimator = 0;
-
-			double si = SampleFilter_get(&filteri);
-			double sq = SampleFilter_get(&filterq);
+			oversampler = 0;
+			double si = avgi;
+			double sq = avgq;
+			avgi = avgq = 0.0;
 
 			if (debug == 3)
 			{
@@ -285,14 +302,15 @@ int main(int argc, char **argv)
 				nDebugout++;
 			}
 
-			double sample = si*si + sq*sq; // Proportional to receive power
+			/* Convert complex sample to magnitude squared */
+			double sample = si*si + sq*sq;
 
-			/* Get an average value to compare against */
-			double avg = runningAvg(&avgCtx, sample);
+			/* Get a mid point to compare levels against */
+			double midPoint = runningAvg(&midPointCtx, sample);
 
 			/* Hysteresis XXX: These values might need optimizing */
-			if (sample > avg * 1.00) bit = 1;
-			if (sample < avg * 0.25) bit = 0;
+			if (sample > midPoint * 1.00) bit = 1;
+			if (sample < midPoint * .15) bit = 0;
 
 			/* Check for zero-crossing */
 			int zeroCrossing = (lastBit != bit);
