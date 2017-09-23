@@ -14,6 +14,6 @@ void setCode(unsigned char *packet, unsigned int code);
 #define COMMAND_LOCK	0x1
 #define COMMAND_UNLOCK	0x2
 #define COMMAND_TRUNK	0xb
-
+#define COMMAND_PANIC	0xa
 
 #endif // PROTOCOL_H
