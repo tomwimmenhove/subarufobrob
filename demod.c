@@ -157,6 +157,7 @@ void demodBit(DemodContext* demodCtx, int bit)
 				demodCtx->ending = 0;
 				if (demodCtx->ending > 1)
 				{
+					fprintf(stderr, "False alarm\n");
 					demodCtx->ending = 0;
 					demodCtx->state = 0;
 				}
@@ -171,7 +172,7 @@ void demodBit(DemodContext* demodCtx, int bit)
 				/* Check for manchester encoding errors */
 				if (bit == demodCtx->lastBit)
 				{
-//					fprintf(stderr, "Manchester encoding error: %d and %d at manchPos %d\n", bit, demodCtx->lastBit, demodCtx->manchPos);
+					fprintf(stderr, "Manchester encoding error: %d and %d at manchPos %d\n", bit, demodCtx->lastBit, demodCtx->manchPos);
 					/* Reset state */
 					demodCtx->state = 0;
 					demodCtx->preambleGood = 0;
@@ -372,10 +373,7 @@ int main(int argc, char **argv)
 	}
 	int nDebugout = -1;
 
-	int first = 1;
 	int bit = 0;
-	double offsetI = 0.0;
-	double offsetQ = 0.0;
 	while ((n = read(pipefd[0], buf, sizeof(buf))) > 0)
 	{
 		int nout;
@@ -397,17 +395,6 @@ int main(int argc, char **argv)
 			else
 			{
 				cSample = &lut[buf[i]];
-			}
-
-			if (first)
-			{
-				offsetI += cSample->i;
-				offsetQ += cSample->q;
-			}
-			else
-			{
-				cSample->i -= offsetI;
-				cSample->q -= offsetQ;
 			}
 
 			if (debug == 1)
@@ -479,16 +466,6 @@ int main(int argc, char **argv)
 			}
 
 			nDebugout = 0;
-		}
-
-		if (first)
-		{
-			first = 0;
-			offsetI /= nout;
-			offsetQ /= nout;
-
-			fprintf(stderr, "I offset: %f\n", offsetI);
-			fprintf(stderr, "Q offset: %f\n", offsetQ);
 		}
 	}
 

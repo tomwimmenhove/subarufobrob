@@ -12,7 +12,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 2)
 	{
-		fprintf(stderr, "usage, %s <command> [increment]\n\tcommand can be \"lock\", \"unlock\" or \"trunk\"\nincrement increments the rolling code by a certain amound. Defaults to 1\n", argv[0]);
+		fprintf(stderr, "usage, %s <command> [increment]\n\tcommand can be \"lock\", \"unlock\", \"trunk\" or \"panic\"\nincrement increments the rolling code by a certain amound. Defaults to 1\n", argv[0]);
 		return -1;
 	}
 
@@ -43,6 +43,7 @@ int main(int argc, char** argv)
 	if (strcmp(argv[1], "lock") == 0) forceCommand = COMMAND_LOCK;
 	else if (strcmp(argv[1], "unlock") == 0) forceCommand = COMMAND_UNLOCK;
 	else if (strcmp(argv[1], "trunk") == 0) forceCommand = COMMAND_TRUNK;
+	else if (strcmp(argv[1], "panic") == 0) forceCommand = COMMAND_PANIC;
 	else
 	{
 		fprintf(stderr, "Dunno what %s means, use \"lock\", \"unlock\" or \"trunk\"\n", argv[2]);

@@ -3,9 +3,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#define COMMAND_LOCK	0x1
-#define COMMAND_UNLOCK	0x2
-#define COMMAND_TRUNK	0xb
+#include "protocol.h"
 
 unsigned char getCrc(unsigned char *packet)
 {
@@ -65,6 +63,8 @@ char* commandName(unsigned char command)
 			return "unlock";
 		case COMMAND_TRUNK:
 			return "trunk";
+		case COMMAND_PANIC:
+			return "panic";
 		default:
 			return "unknown";
 	}
