@@ -5,9 +5,8 @@ Usage:
 - Build it:
   $ ./build.sh
 - Start the demodulator:
-  $ ./listener.sh
+  $ ./demod <options>
 - Wait until a packet is captured. This will automatically be written to "latestcode.txt" and appended to "receivedcodes.txt"
-- Stop the demodulator and gnuradio script.
 
 You now have the latest packet from the FOB in "latestcode.txt" !
 
