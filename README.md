@@ -11,7 +11,7 @@ Usage:
 You now have the latest packet from the FOB in "latestcode.txt" !
 
 To roll over to the next code, run ./rollthecode <command>, where command is either "lock", "unlock", "trunk" or "panic".
-To create a file for rpitx to transmit the code, use ./rpitxify <code> someFile.rfa
+To create a file for rpitx to transmit the code, use ./rpitxify <hexcode> someFile.rfa
 Then, this code can be sent using sudo rpitx -m RFA -i someFile.rfa -f 433920
 
 There is a simple little shell script, opensesame.sh, that does the above three steps automatically. Run ./opensesame.sh <command>
