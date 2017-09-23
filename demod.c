@@ -216,8 +216,8 @@ int main(int argc, char **argv)
 	double freq = 433.92e+6;
 //	uint32_t sampleRate = 995840;// 1024 raw samples per bit at 995840Hz samplerate
 	uint32_t sampleRate = 972500; // 1000 raw samples per bit at 972500Hz samplerate
-	int decimation1 = 5; // We're going from ~1Mhz to ~200Khz
-        int samplesPerBit = 200; // at ~200Khz we're getting exactly 200 samples per bit
+	int decimation1 = 10; // We're going from ~1Mhz to ~100Khz
+        int samplesPerBit = 100; // at ~100Khz we're getting exactly 100 samples per bit
 	int historyLen = samplesPerBit * 8; // XXX: Shoule be significantly longer than 2 bits, significantly shorted than the pre-amble
 	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
 
