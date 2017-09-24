@@ -20,12 +20,6 @@
 
 void handlePacket(unsigned char* packet)
 {
-	if (isValidPacket(packet) == -1)
-	{
-		fprintf(stderr, "Invalid packet\n");
-		return;
-	}
-
 	unsigned char hexString[21];
 
 	hexify(hexString, packet, 10);
@@ -95,32 +89,39 @@ void printHelp(char *s)
 
 typedef struct 
 {
+	/* Bit demod */
 	int state;
 	int preambleGood;
-	int lastBit;
+	int lastDemodBit;
 	int ending;
-	int nbits;
-
 	int minPreamble;
-
 	int manchPos;
-	uint8_t byte;
 	int bitpos;
-	int pos;
+	uint8_t byte;
+	int bytePos;
 	uint8_t packet[10];
+	int retry;
+
+	/* Sample demod */
+	int lastBit;
+	int sampleAt;
+	int sampleNum;
+	int samplesPerBit;
+	runningAvgContext midPointCtx;
+	runningAvgContext bitAvgCtx;
 } DemodContext;
 
+#define DEMOD_PREAMBLE		0
+#define DEMOD_WAITZEROES	1
+#define DEMOD_BITBANG		2
+#define DEMOD_WAITRETRY		3
 void demodBit(DemodContext* demodCtx, int bit)
 {
 	switch (demodCtx->state)
 	{
-		case 0: // Wait for preamble
-			if (!demodCtx->preambleGood && !bit)
-			{
-				break;
-			}
-
-			if (demodCtx->lastBit != bit)
+		case DEMOD_PREAMBLE: // Wait for preamble
+			/* Check for a series of alternating bits */
+			if (demodCtx->lastDemodBit != bit)
 			{
 				demodCtx->preambleGood++;
 			}
@@ -129,27 +130,29 @@ void demodBit(DemodContext* demodCtx, int bit)
 				demodCtx->preambleGood = 0;
 			}
 
+			/* Do we have enough of a preamble to be confident that it's the start of a packet ? */
 			if (demodCtx->preambleGood >= demodCtx->minPreamble)
 			{
-				demodCtx->state = 1;
+				demodCtx->state = DEMOD_WAITZEROES;
 				demodCtx->preambleGood = 0;
 				demodCtx->ending = 0;
 			}
 			break;
-		case 1: // wait for en of preamble: 4 zeroes in a row
+		case DEMOD_WAITZEROES: // wait for en of preamble: 4 zeroes in a row
 			if (bit == 0)
 			{
 				demodCtx->ending++;
+				/* Get ready for the next state if we have our 4 zeroes */
 				if (demodCtx->ending == 4)
 				{
 					fprintf(stderr, "Got preamble!\n");
 					demodCtx->ending = 0;
-					demodCtx->state = 2;
-					demodCtx->nbits = 0;
 					demodCtx->manchPos = 0;
 					demodCtx->byte = 0;
 					demodCtx->bitpos = 0;
-					demodCtx->pos = 0;
+					demodCtx->bytePos = 0;
+					demodCtx->retry = 1;
+					demodCtx->state = DEMOD_BITBANG;
 				}
 			}
 			else
@@ -157,58 +160,133 @@ void demodBit(DemodContext* demodCtx, int bit)
 				demodCtx->ending = 0;
 				if (demodCtx->ending > 1)
 				{
-					fprintf(stderr, "False alarm\n");
+					/* We just had more than 1 zero followed by a one: not a valid preamble: reset state */
 					demodCtx->ending = 0;
-					demodCtx->state = 0;
+					demodCtx->state = DEMOD_PREAMBLE;
 				}
 			}
 
 			break;
-		case 2: // bit bang
-
-
+		case DEMOD_BITBANG: // bit bang
 			if (demodCtx->manchPos & 1)
 			{       
 				/* Check for manchester encoding errors */
-				if (bit == demodCtx->lastBit)
+				if (bit == demodCtx->lastDemodBit)
 				{
-					fprintf(stderr, "Manchester encoding error: %d and %d at manchPos %d\n", bit, demodCtx->lastBit, demodCtx->manchPos);
-					/* Reset state */
-					demodCtx->state = 0;
-					demodCtx->preambleGood = 0;
+//					fprintf(stderr, "WARNING: Manchester encoding error: %d and %d at manchPos %d\n", bit, demodCtx->lastDemodBit, demodCtx->manchPos);
+
+					if (!demodCtx->retry)
+					{
+						/* Reset state */
+						demodCtx->state = DEMOD_PREAMBLE;
+						demodCtx->preambleGood = 0;
+					}
 				}
 			}
 			else
-			{       
+			{
 				/* This is a data bit */
 				demodCtx->byte <<= 1;
 				demodCtx->byte |= bit;
 
 				demodCtx->bitpos++;
 
+				/* Do we have a full byte? */
 				if (demodCtx->bitpos == 8)
 				{       
-					demodCtx->packet[demodCtx->pos++] = demodCtx->byte;
+					/* Add to buffer */
+					demodCtx->packet[demodCtx->bytePos++] = demodCtx->byte;
 					demodCtx->byte = 0;
 					demodCtx->bitpos = 0;
 
-					if (demodCtx->pos == sizeof(demodCtx->packet)) // We have a full packet! */
+					/* Do we have a full packet? */
+					if (demodCtx->bytePos == sizeof(demodCtx->packet))
 					{
-						handlePacket(demodCtx->packet);
-						demodCtx->preambleGood = 0;
-						demodCtx->state = 0;
+						if (isValidPacket(demodCtx->packet) == -1)
+						{
+							fprintf(stderr, "Invalid packet\n");
+							if (demodCtx->retry == 0)
+							{
+								/* No more retries: reset state */
+								demodCtx->state = DEMOD_PREAMBLE;
+							}
+							else
+							{
+								/* Try the next transmission? */
+								demodCtx->state = DEMOD_WAITRETRY;
+							}
+						}
+						else
+						{
+							handlePacket(demodCtx->packet);
+							demodCtx->preambleGood = 0;
+							demodCtx->state = DEMOD_PREAMBLE;
+						}
+
+						demodCtx->retry--;
 					}
 				}
 			}
 
 			demodCtx->manchPos++;
-			demodCtx->nbits++;
 			break;
+
+		case DEMOD_WAITRETRY: // Wait 5 bits for the next iransmission
+			demodCtx->manchPos++;
+			if (demodCtx->manchPos == 164)
+			{
+				demodCtx->manchPos = 0;
+				demodCtx->byte = 0;
+				demodCtx->bitpos = 0;
+				demodCtx->bytePos = 0;
+
+				demodCtx->state = DEMOD_BITBANG;
+			}
+			break;
+
 	}
 
+	demodCtx->lastDemodBit = bit;
+}
 
+void demodSample(DemodContext* demodCtx, double magnitude)
+{
+	/* And get a running average of one bitlength of that */
+	double avgSample = runningAvg(&demodCtx->bitAvgCtx, magnitude);
+
+	/* Get a mid point to compare levels against */
+	double midPoint = runningAvg(&demodCtx->midPointCtx, avgSample);
+
+	/* Get the value of the actual bit */
+	int bit = avgSample > midPoint;
+
+	/* Check for zero-crossing */
+	if (demodCtx->lastBit != bit)
+	{
+		// Align the sampleAt variable here
+		demodCtx->sampleAt = demodCtx->sampleNum + demodCtx->samplesPerBit / 2.0;
+	}
+
+	/* Is this the middle of our sample ? */
+	if (demodCtx->sampleNum >= demodCtx->sampleAt)
+	{
+		demodBit(demodCtx, bit);
+
+		/* Time the next sample */
+		demodCtx->sampleAt += demodCtx->samplesPerBit;
+	}
 
 	demodCtx->lastBit = bit;
+	demodCtx->sampleNum++;
+}
+
+void demodInit(DemodContext* demodCtx, int samplesPerBit, int minPreambleBits)
+{
+	memset(demodCtx, 0, sizeof(DemodContext));
+	demodCtx->minPreamble = minPreambleBits;
+	demodCtx->samplesPerBit = samplesPerBit;
+	runningAvgInit(&demodCtx->bitAvgCtx, samplesPerBit);
+	runningAvgInit(&demodCtx->midPointCtx, samplesPerBit * 8); // XXX: 8 is a guess. Significantly longer than any period without a zero-crossing, shorter than the preamble
 }
 
 int main(int argc, char **argv)
@@ -216,20 +294,18 @@ int main(int argc, char **argv)
 	double freq = 433.92e+6;
 //	uint32_t sampleRate = 995840;// 1024 raw samples per bit at 995840Hz samplerate
 	uint32_t sampleRate = 972500; // 1000 raw samples per bit at 972500Hz samplerate
-	int decimation1 = 10; // We're going from ~1Mhz to ~100Khz
-        int samplesPerBit = 100; // at ~100Khz we're getting exactly 100 samples per bit
-	int historyLen = samplesPerBit * 8; // XXX: Shoule be significantly longer than 2 bits, significantly shorted than the pre-amble
+	int decimation1 = 5; // We're going from ~1Mhz to ~200Khz
+        int samplesPerBit = 200; // at ~200Khz we're getting exactly 200 samples per bit
 	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
+	int minPreambleBits = 42;
 
 	SampleFilter lpfi1;
 	SampleFilter lpfq1;
 	SampleFilter_init(&lpfi1);
 	SampleFilter_init(&lpfq1);
 
-	SampleFilter lpfi2;
-	SampleFilter lpfq2;
-	SampleFilter_init(&lpfi2);
-	SampleFilter_init(&lpfq2);
+	DemodContext demodCtx;
+	demodInit(&demodCtx, samplesPerBit, minPreambleBits);
 
 	int decimator = 0;
 
@@ -238,11 +314,7 @@ int main(int argc, char **argv)
 	int tunergain = 87;		// XXX: Pulled from GNURadio source. Dunno what it means
 	rtlsdr_dev_t *dev = NULL;
 	unsigned int dev_index = 0;
-	int sampleAt = 0.0;
 	int n;
-	int sampleNum = 0;
-	int lastBit = 0;
-	int minPreambleBits = 42;
 	int debug = 0;
 	int c;
 	
@@ -300,17 +372,6 @@ int main(int argc, char **argv)
 		lut[i].q = (((float)(i & 0xff) - 127.4f) * (1.0f/128.0f);
 #endif
 	}
-
-	/* set up running average to get ac signal */
-	runningAvgContext midPointCtx;
-	runningAvgInit(&midPointCtx, historyLen);
-
-	runningAvgContext bitAvgCtx;
-	runningAvgInit(&bitAvgCtx, samplesPerBit);
-
-	DemodContext demodCtx;
-	memset(&demodCtx, 0, sizeof(DemodContext));
-	demodCtx.minPreamble = minPreambleBits;
 
 	Context ctx;
 	int pipefd[2];
@@ -373,7 +434,6 @@ int main(int argc, char **argv)
 	}
 	int nDebugout = -1;
 
-	int bit = 0;
 	while ((n = read(pipefd[0], buf, sizeof(buf))) > 0)
 	{
 		int nout;
@@ -412,11 +472,8 @@ int main(int argc, char **argv)
 				continue;
 			}
 			decimator = 0;
-			float siTemp = SampleFilter_get(&lpfi1);
-			float sqTemp = SampleFilter_get(&lpfq1);
-
-			double si = siTemp;
-			double sq = sqTemp;
+			double si = SampleFilter_get(&lpfi1);
+			double sq = SampleFilter_get(&lpfq1);
 
 			if (debug == 3)
 			{
@@ -428,33 +485,7 @@ int main(int argc, char **argv)
 			/* Convert complex sample to magnitude squared */
 			double sample = si*si + sq*sq;
 
-			/* And get a running average of one bitlength of that */
-			sample = runningAvg(&bitAvgCtx, sample);
-
-			/* Get a mid point to compare levels against */
-			double midPoint = runningAvg(&midPointCtx, sample);
-
-			/* Get the value of the actual bit */
-			bit = sample > midPoint;
-
-			/* Check for zero-crossing */
-			if (lastBit != bit)
-			{
-				// Align the sampleAt variable here
-				sampleAt = sampleNum + samplesPerBit / 2.0;
-			}
-
-			/* Is this the middle of our sample ? */
-			if (sampleNum >= sampleAt)
-			{
-				demodBit(&demodCtx, bit);
-
-				/* Time the next sample */
-				sampleAt += samplesPerBit;
-			}
-
-			lastBit = bit;
-			sampleNum++;
+			demodSample(&demodCtx, sample);
 		}
 
 		if (debug == 3 || debug == 1)
