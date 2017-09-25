@@ -5,7 +5,10 @@ It uses an RTL-SDR dongle and a Raspberry-Pi to capture and send keyfob codes. T
 
 Usage:
 - Build it:
-  $ ./build.sh
+  $ mkdir build
+  $ cd build
+  $ cmake ..
+  $ make
 - Start the demodulator:
   $ ./fobrob [options]
 - Wait until a packet is captured. This will automatically be written to "latestcode.txt" and appended to "receivedcodes.txt"
