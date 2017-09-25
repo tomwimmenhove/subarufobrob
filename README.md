@@ -7,7 +7,7 @@ Usage:
 - Build it:
   $ ./build.sh
 - Start the demodulator:
-  $ ./demod [options]
+  $ ./fobrob [options]
 - Wait until a packet is captured. This will automatically be written to "latestcode.txt" and appended to "receivedcodes.txt"
 
 You now have the latest packet from the FOB in "latestcode.txt" !
