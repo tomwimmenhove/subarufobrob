@@ -1,7 +1,7 @@
 # subarufobrob
 Hijack a subaru's key fob and steal all the things
 
-It uses an RTL-SDR dongle and a Raspberry-Pi to capture and send keyfob codes. The RTL-SDR dongle is used to capture and demodulate a code. This code can then be changed into an 'unlock' command with a new rolling code. This new code can then be sent using rpitx (a separate unrelated Raspberry-Pi tool), to unlock YOUR car.
+It uses an RTL-SDR dongle and a Raspberry-Pi to capture and send keyfob codes. The RTL-SDR dongle is used to capture and demodulate a code. This code can then be changed into an 'unlock' command with a new rolling code. This new code can be transmitted using rpitx (a separate unrelated Raspberry-Pi tool), to unlock YOUR car.
 
 Usage:
 - Build it:
