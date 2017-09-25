@@ -94,9 +94,10 @@ int main(int argc, char **argv)
 //	uint32_t sampleRate = 995840;// 1024 raw samples per bit at 995840Hz samplerate
 	uint32_t sampleRate = 972500; // 1000 raw samples per bit at 972500Hz samplerate
 	int decimation1 = 5; // We're going from ~1Mhz to ~200Khz
-        int samplesPerBit = 200; // at ~200Khz we're getting exactly 200 samples per bit
+        int samplesPerSymbol = 200; // at ~200Khz we're getting exactly 200 samples per bit
 	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
 	int minPreambleBits = 42;
+	int maxPreambleTimingError = 40; // Might be a little high but reduces falce positives by a LOT
 
 	SampleFilter lpfi1;
 	SampleFilter lpfq1;
@@ -104,7 +105,7 @@ int main(int argc, char **argv)
 	SampleFilter_init(&lpfq1);
 
 	DemodContext demodCtx;
-	demodInit(&demodCtx, samplesPerBit, minPreambleBits, &handlePacket);
+	demodInit(&demodCtx, samplesPerSymbol, minPreambleBits, maxPreambleTimingError, &handlePacket);
 
 	int decimator = 0;
 
