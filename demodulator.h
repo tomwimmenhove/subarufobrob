@@ -12,7 +12,9 @@ typedef struct
 	/* Bit demod */
 	int state;
 	int preambleGood;
+	int maxPreambleTimingError;
 	int lastDemodBit;
+	uint64_t lastOneSampledAt;
 	int ending;
 	int minPreamble;
 	int manchPos;
@@ -21,19 +23,20 @@ typedef struct
 	int bytePos;
 	uint8_t packet[10];
 	int retry;
+	int preambleStart;
 
 	/* Sample demod */
 	int lastBit;
-	int sampleAt;
-	int sampleNum;
-	int samplesPerBit;
+	uint64_t sampleAt;
+	uint64_t sampleNum;
+	int samplesPerSymbol;
 	runningAvgContext midPointCtx;
 	runningAvgContext bitAvgCtx;
 } DemodContext;
 
 void demodBit(DemodContext* demodCtx, int bit);
 void demodSample(DemodContext* demodCtx, double magnitude);
-void demodInit(DemodContext* demodCtx, int samplesPerBit, int minPreambleBits, void (*packetHandler)(unsigned char* packet));
+void demodInit(DemodContext* demodCtx, int samplesPerSymbol, int minPreambleBits, int maxPreambleTimingError, void (*packetHandler)(unsigned char* packet));
 
 #endif // DEMODULATOR_H
 

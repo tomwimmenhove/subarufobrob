@@ -12,26 +12,54 @@
 #define DEMOD_WAITZEROES	1
 #define DEMOD_BITBANG		2
 #define DEMOD_WAITRETRY		3
+
 void demodBit(DemodContext* demodCtx, int bit)
 {
 	switch (demodCtx->state)
 	{
 		case DEMOD_PREAMBLE: // Wait for preamble
+			/* Check if timing is somewhere enar reasonable */
+			if (demodCtx->preambleGood)
+			{
+				/* We check the times between ones */
+				if (bit)
+				{
+					if (demodCtx->lastOneSampledAt)
+					{
+						/* Reset state if there's too large a discrepancy */
+						if (abs(demodCtx->sampleNum - demodCtx->lastOneSampledAt - demodCtx->samplesPerSymbol * 2) > demodCtx->maxPreambleTimingError)
+						{
+							demodCtx->preambleGood = 0;
+							demodCtx->lastOneSampledAt = 0;
+							break;
+						}
+					}
+					demodCtx->lastOneSampledAt = demodCtx->sampleNum;
+				}
+			}
+
 			/* Check for a series of alternating bits */
 			if (demodCtx->lastDemodBit != bit)
 			{
+				if (demodCtx->preambleGood == 1)
+				{
+					demodCtx->preambleStart = demodCtx->sampleNum; 
+				}
 				demodCtx->preambleGood++;
 			}
 			else
 			{
 				demodCtx->preambleGood = 0;
+				demodCtx->lastOneSampledAt = 0;
 			}
 
 			/* Do we have enough of a preamble to be confident that it's the start of a packet ? */
 			if (demodCtx->preambleGood >= demodCtx->minPreamble)
 			{
+//				fprintf(stderr, "Symbols per sample for this preamble: %f\n", (double) (demodCtx->sampleNum - demodCtx->preambleStart) / (demodCtx->minPreamble - 2));
 				demodCtx->state = DEMOD_WAITZEROES;
 				demodCtx->preambleGood = 0;
+				demodCtx->lastOneSampledAt = 0;
 				demodCtx->ending = 0;
 			}
 			break;
@@ -77,6 +105,7 @@ void demodBit(DemodContext* demodCtx, int bit)
 						/* Reset state */
 						demodCtx->state = DEMOD_PREAMBLE;
 						demodCtx->preambleGood = 0;
+						demodCtx->lastOneSampledAt = 0;
 					}
 				}
 			}
@@ -117,6 +146,7 @@ void demodBit(DemodContext* demodCtx, int bit)
 						{
 							demodCtx->packetHandler(demodCtx->packet);
 							demodCtx->preambleGood = 0;
+							demodCtx->lastOneSampledAt = 0;
 							demodCtx->state = DEMOD_PREAMBLE;
 						}
 
@@ -161,7 +191,7 @@ void demodSample(DemodContext* demodCtx, double magnitude)
 	if (demodCtx->lastBit != bit)
 	{
 		// Align the sampleAt variable here
-		demodCtx->sampleAt = demodCtx->sampleNum + demodCtx->samplesPerBit / 2.0;
+		demodCtx->sampleAt = demodCtx->sampleNum + demodCtx->samplesPerSymbol / 2.0;
 	}
 
 	/* Is this the middle of our sample ? */
@@ -170,20 +200,21 @@ void demodSample(DemodContext* demodCtx, double magnitude)
 		demodBit(demodCtx, bit);
 
 		/* Time the next sample */
-		demodCtx->sampleAt += demodCtx->samplesPerBit;
+		demodCtx->sampleAt += demodCtx->samplesPerSymbol;
 	}
 
 	demodCtx->lastBit = bit;
 	demodCtx->sampleNum++;
 }
 
-void demodInit(DemodContext* demodCtx, int samplesPerBit, int minPreambleBits, void (*packetHandler)(unsigned char* packet))
+void demodInit(DemodContext* demodCtx, int samplesPerSymbol, int minPreambleBits, int maxPreambleTimingError, void (*packetHandler)(unsigned char* packet))
 {
 	memset(demodCtx, 0, sizeof(DemodContext));
 	demodCtx->minPreamble = minPreambleBits;
-	demodCtx->samplesPerBit = samplesPerBit;
-	runningAvgInit(&demodCtx->bitAvgCtx, samplesPerBit);
-	runningAvgInit(&demodCtx->midPointCtx, samplesPerBit * 8); // XXX: 8 is a guess. Significantly longer than any period without a zero-crossing, shorter than the preamble
+	demodCtx->maxPreambleTimingError = maxPreambleTimingError;
+	demodCtx->samplesPerSymbol = samplesPerSymbol;
+	runningAvgInit(&demodCtx->bitAvgCtx, samplesPerSymbol);
+	runningAvgInit(&demodCtx->midPointCtx, samplesPerSymbol * 8); // XXX: 8 is a guess. Significantly longer than any period without a zero-crossing, shorter than the preamble
 	demodCtx->packetHandler = packetHandler;
 }
 
