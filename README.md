@@ -1,37 +1,54 @@
 # subarufobrob
 Hijack a subaru's key fob and steal all the things
 
-It uses an RTL-SDR dongle and a Raspberry-Pi to capture and send keyfob codes. The RTL-SDR dongle is used to capture and demodulate a code. This code can then be changed into an 'unlock' command with a new rolling code. This new code can be transmitted using rpitx (a separate unrelated Raspberry-Pi tool), to unlock YOUR car.
+# Description of the vulnerability
+The rolling code used by the keyfob and car is predictable in the sense that it is not random. It is simply incremental.
 
-Usage:
-- Build it:
-  $ mkdir build
-  $ cd build
-  $ cmake ..
-  $ make
-- Start the demodulator:
-  $ ./fobrob [options]
-- Wait until a packet is captured. This will automatically be written to "latestcode.txt" and appended to "receivedcodes.txt"
+# Impact
+An attacker can 'clone' the keyfob and, when increasing the rolling code with a sufficiently high value, effectively renders the user's keyfob unusable.
 
-You now have the latest packet from the FOB in "latestcode.txt" !
-
-To roll over to the next code, run ./rollthecode &lt;command&gt;, where command is either "lock", "unlock", "trunk" or "panic".
-To create a file for rpitx to transmit the code, use ./rpitxify &lt;hexcode&gt; someFile.rfa
-Then, this code can be sent using sudo rpitx -m RFA -i someFile.rfa -f 433920
-
-There is a simple little shell script, opensesame.sh, that does the above three steps automatically. Run ./opensesame.sh &lt;command&gt;
-
-It has been tested with 2 keyfobs for a 2009 Subaru Forester.
-
-This fob is also used on:
+# Affected vehicles
+The exploit has only been tested on a 2009 Subaru Forester, but the same fob is used, and should work on, the following vehicles:
  - 2006 Subaru Baja
  - 2005 - 2010 Subaru Forester
  - 2004 - 2011 Subaru Impreza
  - 2005 - 2010 Subaru Legacy
  - 2005 - 2010 Subaru Outback
 
-So it should work with all the above.
+# Solution
+Don't use the most predictable sequential type of rolling code. Don't send the command twice so that, in case of Samy Kamkar's rolljam attack, not even the XOR checksum has to be recalculated when changing a lock to an unlock command, since the 2 commands cancel each other out, leaving the checksum in tact.
 
+# Required hardware
+In order to run the exploit, a receiver and transmitter, capable of receiving and transmitting on the 433MHz ISM band, are necessary. In our case, we're using an RTL-SDR RTL2832U DBV-T tuner USB dongle as a receiver and a Raspberry Pi B+ v1.2 with **rpitx** as a transmitter. The Raspberry Pi is also used as the host computer for the exploit to run on. Furthermore, a USB WiFi dongle is used in conjunction with **hostapd** in order to be able to remotely connect (ssh) to the Raspberry Pi for control. Alternatively, a Raspberry Pi Zero W could probably be used in order to negate the need for the additional WiFi dongle and further reduce the physical footprint and cost of the device, although this has not been tested.
+The RTL-SDR dongle should be fitted with a suitable 433MHz antenna to allow for acceptable reception of the keyfob's signal. On the Tx side, a quarter-wavelength (173mm or 6.8") wire can be soldered directly to GPIO 18 (Pin 12 of the GPIO header P1) on the Raspberry Pi. Finally some type of portable power source is required for portable operation, I.E a li-ion power bank.
+Total cost of the hardware, when using the Raspberry Pi Zero W, should under $25 (not including a power bank).
 
-DISCLAIMER: Don't actually steal the thingz!
+# Building
+ - Download, compile and install rpitx: https://github.com/F5OEO/rpitx
+ - Make sure librtlsdr-dev is installed
+ - Build:
+   $ **git clone https://github.com/tomwimmenhove/subarufobrob.git**
+   $ **cd subarufobrob**
+   $ **mkdir buikld**
+   $ **cd build**
+   $ **cmake ..**
+   $ **make**
+   
+# Operation
+To start capturing packets sent from a keyfob, start the 'fobrob' application
+   $ **./fobrob**
+Run ./fobrob -h for help op options
+When a packet is captured, the rolling code will be automatically written to the file "latestcode.txt", as well as appended to "receivedcodes.txt". Now that we have received a valid packet, we can 'roll' the code over to the next one and use that to issue any of the following commands to the car: "lock", "unlock", "trunk" or "panic". In order to create a new rolling code for a particular command, use:
+   $ **./rollthecode &lt;command&gt; [increment]**
+where &lt;command&gt; is one of the four commands mentioned above and [increment] is an optional integer the rolling code should be incremented with. The new code is, again, written to "latestcode.txt". Now the code can be converted to a format that **rpitx** understands:
+   $ **././rpitxify &lt;CODE&gt; &lt;filename&gt;**
+where &lt;CODE&gt; is the code contained in the "latestcode.txt" file and &lt;filename&gt; is the rpitx-compatible file to write to. At this point, the code can be transmitted using
+   $ **sudo rpitx -m RFA -i &lt;filename&gt; -f 433920**
+where v is the previously mentioned rpitx-compatible file.
+For convenience, a shell script is added to automate everything but the initial packet capture. To use this, run
+   $ **./opensesame.sh &lt;command&gt;**
+which will roll the code over by one, convert to rpitx and transmit respectively.
+
+# DISCLAIMER
+**Don't actually steal all the things!**
 
