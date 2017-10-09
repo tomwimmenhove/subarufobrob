@@ -8,7 +8,7 @@ The rolling code used by the keyfob and car is predictable in the sense that it 
 An attacker can 'clone' the keyfob and, unlock cars and, when increasing the rolling code with a sufficiently high value, effectively render the user's keyfob unusable.
 
 # Affected vehicles
-The exploit has only been tested on a 2009 Subaru Forester, but the same fob is used, and should work on, the following vehicles:
+The exploit has only been tested on a 2009 Subaru Forester, but the same fob is used, and the exploit should work on, the following vehicles:
  - 2006 Subaru Baja
  - 2005 - 2010 Subaru Forester
  - 2004 - 2011 Subaru Impreza
