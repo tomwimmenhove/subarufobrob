@@ -5,7 +5,7 @@ Hijack a subaru's key fob and steal all the things
 The rolling code used by the keyfob and car is predictable in the sense that it is not random. It is simply incremental.
 
 # Impact
-An attacker can 'clone' the keyfob and, unlock cars and, when increasing the rolling code with a sufficiently high value, effectively renders the user's keyfob unusable.
+An attacker can 'clone' the keyfob and, unlock cars and, when increasing the rolling code with a sufficiently high value, effectively render the user's keyfob unusable.
 
 # Affected vehicles
 The exploit has only been tested on a 2009 Subaru Forester, but the same fob is used, and should work on, the following vehicles:
@@ -52,3 +52,4 @@ which will roll the code over by one, convert to rpitx and transmit respectively
 # DISCLAIMER
 **Don't actually steal all the things!**
 
+P.S. Thanks to pmsac at toxyn dot org for figuring out the checksum algorithm!
