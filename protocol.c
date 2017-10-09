@@ -24,37 +24,37 @@
 
 #include "protocol.h"
 
-unsigned char getCrc(unsigned char *packet)
+unsigned char getCSum(unsigned char *packet)
 {
 	return packet[9] & 0xf;
 }
 
-void setCrc(unsigned char *packet, unsigned char crc)
+void setCSum(unsigned char *packet, unsigned char csum)
 {
 	packet[9] &= 0xf0;
-	packet[9] |= crc;
+	packet[9] |= csum;
 }
 
-unsigned char calcCrc(unsigned char *packet)
+unsigned char calcCSum(unsigned char *packet)
 {
-	unsigned char crc = 0;
+	unsigned char csum = 0;
 	for (int i = 0; i < 10 - 1; i++)
 	{
-		crc ^= packet[i] & 0xf;
-		crc ^= (packet[i]  >> 4)& 0xf;
+		csum ^= packet[i] & 0xf;
+		csum ^= (packet[i]  >> 4)& 0xf;
 	}
 
-	crc ^= (packet[9]  >> 4) & 0xf;
-	crc += 1;
-	crc &= 0xf;
+	csum ^= (packet[9]  >> 4) & 0xf;
+	csum += 1;
+	csum &= 0xf;
 
-	return crc;
+	return csum;
 }
 
 int isValidPacket(unsigned char *packet)
 {
 	if (packet[0] != 0x55) return -1;
-	if (calcCrc(packet) != getCrc(packet)) return -1;
+	if (calcCSum(packet) != getCSum(packet)) return -1;
 	return 0;
 }
 

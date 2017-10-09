@@ -83,8 +83,8 @@ int main(int argc, char** argv)
 
 	dehexify(decoded, hexString, 10);
 
-	unsigned char mycrc = calcCrc(decoded);;
-	unsigned char crc = getCrc(decoded);
+	unsigned char mycsum = calcCSum(decoded);;
+	unsigned char csum = getCSum(decoded);
 
 	int rollingCode = getCode(decoded);
 
@@ -94,8 +94,8 @@ int main(int argc, char** argv)
 	/* Force command */
 	setCommand(decoded, forceCommand);
 
-	/* Fix CRC */
-	setCrc(decoded, calcCrc(decoded));
+	/* Fix CSUM */
+	setCSum(decoded, calcCSum(decoded));
 
 	/* Output the new code */
 	unsigned char newHexString[21];
