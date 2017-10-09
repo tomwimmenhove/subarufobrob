@@ -20,9 +20,9 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-unsigned char getCrc(unsigned char *packet);
-void setCrc(unsigned char *packet, unsigned char crc);
-unsigned char calcCrc(unsigned char *packet);
+unsigned char getCSum(unsigned char *packet);
+void setCSum(unsigned char *packet, unsigned char csum);
+unsigned char calcCSum(unsigned char *packet);
 int isValidPacket(unsigned char *packet);
 unsigned char getCommand(unsigned char *packet);
 char* commandName(unsigned char command);
