@@ -22,7 +22,7 @@
 
 unsigned char getCSum(unsigned char *packet);
 void setCSum(unsigned char *packet, unsigned char csum);
-unsigned char calcCSum(unsigned char *packet);
+unsigned char calcCSum(unsigned char *packet); /* Thanks to pmsac at toxyn dot org for figuring out the checksum algorithm! */
 int isValidPacket(unsigned char *packet);
 unsigned char getCommand(unsigned char *packet);
 char* commandName(unsigned char command);

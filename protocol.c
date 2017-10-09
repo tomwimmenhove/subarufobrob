@@ -35,6 +35,7 @@ void setCSum(unsigned char *packet, unsigned char csum)
 	packet[9] |= csum;
 }
 
+/* Thanks to pmsac at toxyn dot org for figuring out the checksum algorithm! */
 unsigned char calcCSum(unsigned char *packet)
 {
 	unsigned char csum = 0;
