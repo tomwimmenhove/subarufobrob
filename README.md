@@ -5,7 +5,7 @@ Hijack a subaru's key fob and steal all the things
 The rolling code used by the keyfob and car is predictable in the sense that it is not random. It is simply incremental.
 
 # Impact
-An attacker can 'clone' the keyfob and, when increasing the rolling code with a sufficiently high value, effectively renders the user's keyfob unusable.
+An attacker can 'clone' the keyfob and, unlock cars and, when increasing the rolling code with a sufficiently high value, effectively renders the user's keyfob unusable.
 
 # Affected vehicles
 The exploit has only been tested on a 2009 Subaru Forester, but the same fob is used, and should work on, the following vehicles:
@@ -26,27 +26,27 @@ Total cost of the hardware, when using the Raspberry Pi Zero W, should under $25
 # Building
  - Download, compile and install rpitx: https://github.com/F5OEO/rpitx
  - Make sure librtlsdr-dev is installed
- - Build:
-   $ **git clone https://github.com/tomwimmenhove/subarufobrob.git**
-   $ **cd subarufobrob**
-   $ **mkdir buikld**
-   $ **cd build**
-   $ **cmake ..**
-   $ **make**
+ - Build:<br>
+   $ **git clone https://github.com/tomwimmenhove/subarufobrob.git**<br>
+   $ **cd subarufobrob**<br>
+   $ **mkdir buikld**<br>
+   $ **cd build**<br>
+   $ **cmake ..**<br>
+   $ **make**<br>
    
 # Operation
-To start capturing packets sent from a keyfob, start the 'fobrob' application
-   $ **./fobrob**
+To start capturing packets sent from a keyfob, start the 'fobrob' application<br>
+   $ **./fobrob**<br>
 Run ./fobrob -h for help op options
-When a packet is captured, the rolling code will be automatically written to the file "latestcode.txt", as well as appended to "receivedcodes.txt". Now that we have received a valid packet, we can 'roll' the code over to the next one and use that to issue any of the following commands to the car: "lock", "unlock", "trunk" or "panic". In order to create a new rolling code for a particular command, use:
-   $ **./rollthecode &lt;command&gt; [increment]**
-where &lt;command&gt; is one of the four commands mentioned above and [increment] is an optional integer the rolling code should be incremented with. The new code is, again, written to "latestcode.txt". Now the code can be converted to a format that **rpitx** understands:
-   $ **././rpitxify &lt;CODE&gt; &lt;filename&gt;**
-where &lt;CODE&gt; is the code contained in the "latestcode.txt" file and &lt;filename&gt; is the rpitx-compatible file to write to. At this point, the code can be transmitted using
-   $ **sudo rpitx -m RFA -i &lt;filename&gt; -f 433920**
+When a packet is captured, the rolling code will be automatically written to the file "latestcode.txt", as well as appended to "receivedcodes.txt". Now that we have received a valid packet, we can 'roll' the code over to the next one and use that to issue any of the following commands to the car: "lock", "unlock", "trunk" or "panic". In order to create a new rolling code for a particular command, use:<br>
+   $ **./rollthecode &lt;command&gt; [increment]**<br>
+where &lt;command&gt; is one of the four commands mentioned above and [increment] is an optional integer the rolling code should be incremented with. The new code is, again, written to "latestcode.txt". Now the code can be converted to a format that **rpitx** understands:<br>
+   $ **././rpitxify &lt;CODE&gt; &lt;filename&gt;**<br>
+where &lt;CODE&gt; is the code contained in the "latestcode.txt" file and &lt;filename&gt; is the rpitx-compatible file to write to. At this point, the code can be transmitted using<br>
+   $ **sudo rpitx -m RFA -i &lt;filename&gt; -f 433920**<br>
 where v is the previously mentioned rpitx-compatible file.
-For convenience, a shell script is added to automate everything but the initial packet capture. To use this, run
-   $ **./opensesame.sh &lt;command&gt;**
+For convenience, a shell script is added to automate everything but the initial packet capture. To use this, run<br>
+   $ **./opensesame.sh &lt;command&gt;**<br>
 which will roll the code over by one, convert to rpitx and transmit respectively.
 
 # DISCLAIMER
