@@ -29,7 +29,7 @@ Total cost of the hardware, when using the Raspberry Pi Zero W, should under $25
  - Build:<br>
    $ **git clone https://github.com/tomwimmenhove/subarufobrob.git**<br>
    $ **cd subarufobrob**<br>
-   $ **mkdir buikld**<br>
+   $ **mkdir build**<br>
    $ **cd build**<br>
    $ **cmake ..**<br>
    $ **make**<br>
