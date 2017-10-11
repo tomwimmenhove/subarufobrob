@@ -41,7 +41,7 @@ Run ./fobrob -h for help op options
 When a packet is captured, the rolling code will be automatically written to the file "latestcode.txt", as well as appended to "receivedcodes.txt". Now that we have received a valid packet, we can 'roll' the code over to the next one and use that to issue any of the following commands to the car: "lock", "unlock", "trunk" or "panic". In order to create a new rolling code for a particular command, use:<br>
    $ **./rollthecode &lt;command&gt; [increment]**<br>
 where &lt;command&gt; is one of the four commands mentioned above and [increment] is an optional integer the rolling code should be incremented with. The new code is, again, written to "latestcode.txt". Now the code can be converted to a format that **rpitx** understands:<br>
-   $ **././rpitxify &lt;CODE&gt; &lt;filename&gt;**<br>
+   $ **./rpitxify &lt;CODE&gt; &lt;filename&gt;**<br>
 where &lt;CODE&gt; is the code contained in the "latestcode.txt" file and &lt;filename&gt; is the rpitx-compatible file to write to. At this point, the code can be transmitted using<br>
    $ **sudo rpitx -m RFA -i &lt;filename&gt; -f 433920**<br>
 where v is the previously mentioned rpitx-compatible file.
