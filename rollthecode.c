@@ -31,7 +31,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 2)
 	{
-		fprintf(stderr, "usage, %s <command> [increment]\n\tcommand can be \"lock\", \"unlock\", \"trunk\" or \"panic\"\nincrement increments the rolling code by a certain amound. Defaults to 1\n", argv[0]);
+		fprintf(stderr, "usage, %s <command> [increment]\n\tcommand can be \"lock\", \"unlock\", \"trunk\" or \"panic\"\nincrement increments the rolling code by a certain amount. Defaults to 1\n", argv[0]);
 		return -1;
 	}
 
