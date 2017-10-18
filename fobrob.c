@@ -116,7 +116,7 @@ int main(int argc, char **argv)
         int samplesPerSymbol = 200; // at ~200Khz we're getting exactly 200 samples per bit
 	uint16_t buf[DEFAULT_BUF_LENGTH / sizeof(uint16_t)];
 	int minPreambleBits = 42;
-	int maxPreambleTimingError = 40; // Might be a little high but reduces falce positives by a LOT
+	int maxPreambleTimingError = 40; // Might be a little high but reduces false positives by a LOT
 
 	SampleFilter lpfi1;
 	SampleFilter lpfq1;
