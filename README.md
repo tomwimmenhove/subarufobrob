@@ -1,6 +1,9 @@
 # subarufobrob
 Hijack a subaru's key fob and steal all the things
 
+# *UPDATE*
+I am hearing claims from multiple dealers/spokes persons (UK, Australia and BeNeLux) that this only affects US models. I have no way of confirming this, but if true, people outside the US are unlikely to be affected. Please share any information about this if you have a way to test and confirm this. Also, if anybody has a spare non-US keyfob for any of the listed models that can be made available to me for testing, please let me know!
+
 # Description of the vulnerability
 The rolling code used by the key fob and car is predictable in the sense that it is not random. It is simply incremental.
 
