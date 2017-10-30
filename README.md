@@ -2,7 +2,8 @@
 Hijack a subaru's key fob and steal all the things
 
 # *UPDATE*
-I am hearing claims from multiple dealers/spokes persons (UK, Australia and BeNeLux) that this only affects US models. I have no way of confirming this, but if true, people outside the US are unlikely to be affected. Please share any information about this if you have a way to test and confirm this. Also, if anybody has a spare non-US keyfob for any of the listed models that can be made available to me for testing, please let me know!
+I am hearing claims from multiple dealers/spokes persons (UK, Australia and BeNeLux) that this only affects US models. I have no way of confirming this, but if true, people outside the US are unlikely to be affected.
+Fabian Schörghofer (https://github.com/schoerg), who lives in Germany, has confirmed that the exploit did not work on a Subaru Forester 2009 he tested the exploit on. He also made avaiable a raw recording of the keyfob (https://pwnhofer.at/tmp/forester.io.bz2) in which he recorded the following sequence: 3x unlock, 3x lock, unlock, lock, unlock, trunk. The recordings are done at a 2.048MHz sample rate. A screenshot of the GNURadio flow-graph he used for capturing can be found here: https://pwnhofer.at/tmp/gnuradio.png Looking at the captured transmission, they do indeed appear to be different from the one found on US models.
 
 # Description of the vulnerability
 The rolling code used by the key fob and car is predictable in the sense that it is not random. It is simply incremental.
